@@ -1,0 +1,138 @@
+<!-- templates/simulados/upload.html -->
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <title>Gerenciador de Questões | ConcursoPro</title>
+    <style>
+        body { background-color: #f8f9fa; }
+        
+        /* Estilo da caixa de Upload (Drag and Drop Visual) */
+        .upload-area {
+            border: 2px dashed #0d6efd; background-color: #f1f7ff; 
+            border-radius: 12px; padding: 40px 20px; text-align: center;
+            transition: all 0.3s ease; cursor: pointer;
+        }
+        .upload-area:hover { background-color: #e2efff; border-color: #0b5ed7; }
+        .upload-area i { font-size: 3rem; color: #0d6efd; margin-bottom: 15px; }
+        
+        /* Oculta o input real, usaremos o clique na caixa inteira */
+        input[type="file"] { display: none; }
+        
+        .card-custom { border: none; box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.08); border-radius: 15px; }
+    </style>
+</head>
+<body>
+
+<!-- Navbar do Admin/Professor -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-5 shadow-sm">
+    <div class="container">
+        <a class="navbar-brand fw-bold" href="#"><i class="bi bi-shield-lock-fill text-warning"></i> Área do Professor</a>
+        <div class="d-flex">
+            <a href="{% url 'dashboard' %}" class="btn btn-outline-light btn-sm"><i class="bi bi-house-door"></i> Voltar ao Dashboard Aluno</a>
+        </div>
+    </div>
+</nav>
+
+<div class="container pb-5">
+    
+    <!-- Renderização dos Alertas do Django (Mensagens de Sucesso/Erro) -->
+    {% if messages %}
+        <div class="row justify-content-center mb-4">
+            <div class="col-lg-10">
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show shadow-sm border-0 border-start border-{{ message.tags }} border-4" role="alert">
+                        {% if message.tags == 'success' %}<i class="bi bi-check-circle-fill me-2 fs-5 align-middle"></i>{% endif %}
+                        {% if message.tags == 'warning' %}<i class="bi bi-exclamation-triangle-fill me-2 fs-5 align-middle"></i>{% endif %}
+                        {% if message.tags == 'error' or message.tags == 'danger' %}<i class="bi bi-x-octagon-fill me-2 fs-5 align-middle"></i>{% endif %}
+                        <strong>{{ message }}</strong>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
+
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="card card-custom overflow-hidden">
+                <div class="row g-0">
+                    
+                    <!-- LADO ESQUERDO: Instruções e Formato -->
+                    <div class="col-md-5 bg-light p-5 border-end">
+                        <h4 class="fw-bold text-primary mb-4"><i class="bi bi-filetype-csv"></i> Padrão de Importação</h4>
+                        <p class="text-muted small mb-4">
+                            O sistema utiliza a primeira linha do seu arquivo para mapear os dados. Seu arquivo Excel ou Bloco de Notas deve conter <strong>exatamente</strong> estas colunas:
+                        </p>
+                        
+                        <div class="bg-white p-3 rounded border shadow-sm mb-4">
+                            <ul class="list-unstyled small mb-0 font-monospace text-secondary" style="line-height: 1.8;">
+                                <li><i class="bi bi-check text-success"></i> assunto</li>
+                                <li><i class="bi bi-check text-success"></i> enunciado</li>
+                                <li><i class="bi bi-check text-success"></i> a</li>
+                                <li><i class="bi bi-check text-success"></i> b</li>
+                                <li><i class="bi bi-check text-success"></i> c</li>
+                                <li><i class="bi bi-check text-success"></i> d</li>
+                                <li><i class="bi bi-check text-success"></i> correta <span class="text-muted">(A, B, C ou D)</span></li>
+                                <li><i class="bi bi-check text-success"></i> justificativa</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="alert alert-info py-2 small border-0">
+                            <i class="bi bi-info-circle-fill me-1"></i>
+                            <strong>Sistema Anti-Duplicidade:</strong> Se a questão já existir no banco, ela será ignorada automaticamente.
+                        </div>
+                    </div>
+                    
+                    <!-- LADO DIREITO: Área de Upload -->
+                    <div class="col-md-7 p-5 bg-white d-flex flex-column justify-content-center">
+                        <h3 class="fw-bold mb-1">Importação em Lote</h3>
+                        <p class="text-muted mb-4">Selecione o arquivo CSV do seu computador para alimentar o banco de dados de simulados.</p>
+                        
+                        <form method="POST" enctype="multipart/form-data" id="uploadForm">
+                            {% csrf_token %}
+                            
+                            <!-- Caixa estilizda clicável -->
+                            <div class="upload-area mb-4" onclick="document.getElementById('arquivo_csv').click();">
+                                <i class="bi bi-cloud-arrow-up-fill"></i>
+                                <h5 class="fw-bold text-primary mb-1">Clique para buscar o arquivo CSV</h5>
+                                <p class="text-muted small mb-0" id="file-name">Tamanho máximo recomendado: 10MB</p>
+                            </div>
+                            
+                            <!-- Input real escondido -->
+                            <input type="file" id="arquivo_csv" name="arquivo_csv" accept=".csv" required onchange="updateFileName(this)">
+                            
+                            <!-- Botão de Envio (Fica bloqueado até selecionar arquivo) -->
+                            <button type="submit" class="btn btn-primary btn-lg w-100 fw-bold shadow-sm" id="btnSubmit" disabled>
+                                Processar e Salvar Questões <i class="bi bi-database-fill-up ms-2"></i>
+                            </button>
+                        </form>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Scripts Auxiliares do Bootstrap e Interatividade da Tela -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // Função para mostrar o nome do arquivo selecionado e liberar o botão
+    function updateFileName(input) {
+        const fileNameDisplay = document.getElementById('file-name');
+        const btnSubmit = document.getElementById('btnSubmit');
+        
+        if (input.files && input.files[0]) {
+            fileNameDisplay.innerHTML = `<span class="text-success fw-bold"><i class="bi bi-file-earmark-check-fill"></i> ${input.files[0].name} selecionado!</span>`;
+            btnSubmit.disabled = false; // Libera o botão de envio
+        } else {
+            fileNameDisplay.innerHTML = "Tamanho máximo recomendado: 10MB";
+            btnSubmit.disabled = true;
+        }
+    }
+</script>
+</body>
+</html>
